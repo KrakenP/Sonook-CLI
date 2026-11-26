@@ -69,7 +69,12 @@ struct FaultInjectionAndStressTests {
         try await ws.create(ids: ["speech"])
         let now = Date(timeIntervalSince1970: 1_700_000_000)
         _ = try await ws.store.refreshReadyNodes(jobID: "job", now: now)
-        try await #require(processExitsWith: .signal(SIGKILL)) { [root = ws.root as URL, now = now as Date] in
+        setenv("SONOOK_EXIT_TEST_ROOT", ws.root.path, 1)
+        defer { unsetenv("SONOOK_EXIT_TEST_ROOT") }
+        try await #require(processExitsWith: .signal(SIGKILL)) {
+            let rootPath = try #require(ProcessInfo.processInfo.environment["SONOOK_EXIT_TEST_ROOT"])
+            let root = URL(fileURLWithPath: rootPath, isDirectory: true)
+            let now = Date(timeIntervalSince1970: 1_700_000_000)
             let worker = try SQLiteWorkspaceStore(rootDirectory: root)
             let claim = try #require(try await worker.claimNextReadyNode(jobID: "job", workerID: "A", leaseDurationSeconds: 2, now: now))
             try JSONEncoder().encode(claim.lease).write(to: root.appendingPathComponent("old-lease.json"))

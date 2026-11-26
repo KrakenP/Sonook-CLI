@@ -1,10 +1,10 @@
-# Sonook (听澜)
+# Sonook CLI (听澜)
 
 [简体中文](README.zh-CN.md)
 
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE) ![Apple Silicon](https://img.shields.io/badge/macOS-14%2B-black) ![Swift](https://img.shields.io/badge/Swift-6.3%2B-orange)
+[![CI](https://github.com/KrakenP/Sonook-CLI/actions/workflows/ci.yml/badge.svg)](https://github.com/KrakenP/Sonook-CLI/actions/workflows/ci.yml) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE) ![Apple Silicon](https://img.shields.io/badge/macOS-14%2B-black) ![Swift](https://img.shields.io/badge/Swift-6.3%2B-orange)
 
-Turn a manuscript into a cast of voices on your Mac. Sonook is a local-first, Apple Silicon-native Swift audio engine. It follows each passage from its original text through speaker assignment, synthesis and quality review to a chaptered audiobook. If a line needs another take, you can regenerate that line and keep the rest of the recording.
+Turn a manuscript into a cast of voices from your Mac terminal. **Sonook CLI (`sonook`)** is a local-first, Apple Silicon-native Swift command-line tool and audio engine. It follows each passage from its original text through speaker assignment, synthesis and quality review to a chaptered audiobook. If a line needs another take, you can regenerate that line and keep the rest of the recording.
 
 ## What you can make
 
@@ -47,6 +47,8 @@ Apple M5 Max, 64 GiB unified memory. RTF is synthesis time divided by generated 
 Use an Apple Silicon Mac, macOS 14 or later and a full Xcode installation that provides Swift 6.3 or later and the Metal Toolchain. Run these commands from the root of a **1.0 release checkout**. SwiftPM fetches the pinned build dependencies on first build.
 
 ```sh
+git clone https://github.com/KrakenP/Sonook-CLI.git
+cd Sonook-CLI
 xcodebuild -downloadComponent MetalToolchain
 ./scripts/install.sh
 export PATH="$HOME/.local/bin:$PATH"

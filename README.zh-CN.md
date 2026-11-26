@@ -1,10 +1,10 @@
-# Sonook（听澜）
+# Sonook CLI（听澜）
 
 [English](README.md)
 
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE) ![Apple Silicon](https://img.shields.io/badge/macOS-14%2B-black) ![Swift](https://img.shields.io/badge/Swift-6.3%2B-orange)
+[![CI](https://github.com/KrakenP/Sonook-CLI/actions/workflows/ci.yml/badge.svg)](https://github.com/KrakenP/Sonook-CLI/actions/workflows/ci.yml) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE) ![Apple Silicon](https://img.shields.io/badge/macOS-14%2B-black) ![Swift](https://img.shields.io/badge/Swift-6.3%2B-orange)
 
-在自己的 Mac 上，把一份书稿做成多人演播的有声书。听澜是为 Apple Silicon 开发的本地优先 Swift 原生音频引擎。每句录音都能找到对应的原文、说话人和质检结果。听到某句需要重录时，可以只重做这一句，保留其他已验收的录音。
+在 Mac 终端里，把一份书稿做成多人演播的有声书。**Sonook CLI（`sonook`）** 是为 Apple Silicon 开发的本地优先 Swift 原生音频命令行工具与音频引擎。每句录音都能找到对应的原文、说话人和质检结果。听到某句需要重录时，可以只重做这一句，保留其他已验收的录音。
 
 ## 可以做什么
 
@@ -47,6 +47,8 @@ CLI 与 Swift 客户端调用同一套应用服务。AudioCore 定义共享契�
 需要 Apple Silicon Mac、macOS 14 或更高版本，以及提供 Swift 6.3 或更高版本和 Metal Toolchain 的完整 Xcode。进入 **1.0 发行版源码根目录**执行以下命令。首次构建时，SwiftPM 会获取锁定版本的依赖。
 
 ```sh
+git clone https://github.com/KrakenP/Sonook-CLI.git
+cd Sonook-CLI
 xcodebuild -downloadComponent MetalToolchain
 ./scripts/install.sh
 export PATH="$HOME/.local/bin:$PATH"
