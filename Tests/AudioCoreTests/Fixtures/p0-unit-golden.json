@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "fixture_license": "CC0-1.0",
+  "document_id": "unit-ferry",
+  "source_document_revision": "ferry-r1",
+  "sha256_hex": "1ad305232df216f36b6cfa5d65db1e5665f704ccf9e60f9577cc392647d018ae",
+  "utf8_byte_count": 1322,
+  "chapters": [
+    {
+      "chapter_id": "ch_001",
+      "title": "第一章 试铃",
+      "source_span": {
+        "unit": "utf8_byte",
+        "start": 0,
+        "end_exclusive": 627
+      },
+      "segments": [
+        {
+          "segment_id": "s1_01",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 0,
+            "end_exclusive": 17
+          },
+          "source_text": "第一章 试铃\n",
+          "speaker_id": "narrator"
+        },
+        {
+          "segment_id": "s1_02",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 17,
+            "end_exclusive": 192
+          },
+          "source_text": "长乐渡口的雾压着石阶。岑禾蹲在第三块青砖上，把小铜铃系进水尺的空孔。她在木盒盖上写下一行字，又用袖口擦去最后一个点。\n",
+          "speaker_id": "narrator"
+        },
+        {
+          "segment_id": "s1_03",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 192,
+            "end_exclusive": 231
+          },
+          "source_text": "“阿禾，铃离水还有几寸？”",
+          "speaker_id": "wen"
+        },
+        {
+          "segment_id": "s1_04",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 231,
+            "end_exclusive": 319
+          },
+          "source_text": "闻舟把船篙横在膝头。他守了二十年夜渡，岸上人都叫他舟师傅。\n",
+          "speaker_id": "narrator"
+        },
+        {
+          "segment_id": "s1_05",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 319,
+            "end_exclusive": 364
+          },
+          "source_text": "两寸。你听，先响的那一声是风。",
+          "speaker_id": "cen"
+        },
+        {
+          "segment_id": "s1_06",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 364,
+            "end_exclusive": 386
+          },
+          "source_text": "岑禾没有回头。\n",
+          "speaker_id": "narrator"
+        },
+        {
+          "segment_id": "s1_07",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 386,
+            "end_exclusive": 419
+          },
+          "source_text": "“那我这盏灯挂错了。”",
+          "speaker_id": "mu"
+        },
+        {
+          "segment_id": "s1_08",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 419,
+            "end_exclusive": 543
+          },
+          "source_text": "穆青从铺门上解下风灯。青掌柜记账从不用墨，算盘下压着的白纸却画满了一大一小的圆圈。\n",
+          "speaker_id": "narrator"
+        },
+        {
+          "segment_id": "s1_09",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 543,
+            "end_exclusive": 627
+          },
+          "source_text": "“大圈记船，小圈记空渡。昨夜有12只小圈，船一趟也没开。”\n",
+          "speaker_id": "mu"
+        }
+      ]
+    },
+    {
+      "chapter_id": "ch_002",
+      "title": "第二章 回音",
+      "source_span": {
+        "unit": "utf8_byte",
+        "start": 627,
+        "end_exclusive": 1322
+      },
+      "segments": [
+        {
+          "segment_id": "s2_01",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 627,
+            "end_exclusive": 644
+          },
+          "source_text": "第二章 回音\n",
+          "speaker_id": "narrator"
+        },
+        {
+          "segment_id": "s2_02",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 644,
+            "end_exclusive": 822
+          },
+          "source_text": "重逢时天已经亮了。三个人沿着退水留下的泥线走到桥洞，发现一片瓦正搭在旧铁管的口上。瓦边有条窄缝，恰好能穿过一根湿麻线。\n",
+          "speaker_id": "narrator"
+        },
+        {
+          "segment_id": "s2_03",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 822,
+            "end_exclusive": 864
+          },
+          "source_text": "“我把瓦抬高，你再拉一次。”",
+          "speaker_id": "wen"
+        },
+        {
+          "segment_id": "s2_04",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 864,
+            "end_exclusive": 910
+          },
+          "source_text": "舟师傅侧过身，让出一小块干地。\n",
+          "speaker_id": "narrator"
+        },
+        {
+          "segment_id": "s2_05",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 910,
+            "end_exclusive": 955
+          },
+          "source_text": "“先别动，我要把这一声留下。”",
+          "speaker_id": "cen"
+        },
+        {
+          "segment_id": "s2_06",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 955,
+            "end_exclusive": 1077
+          },
+          "source_text": "阿禾按下录音盒上写着Echo的白键。铃响以后，洞里慢慢答了一声，像有人拿指甲轻叩空碗。\n",
+          "speaker_id": "narrator"
+        },
+        {
+          "segment_id": "s2_07",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 1077,
+            "end_exclusive": 1110
+          },
+          "source_text": "原来那些空渡都在这里。",
+          "speaker_id": "mu"
+        },
+        {
+          "segment_id": "s2_08",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 1110,
+            "end_exclusive": 1180
+          },
+          "source_text": "青掌柜把纸翻过来，在背面认认真真画了一只耳朵。\n",
+          "speaker_id": "narrator"
+        },
+        {
+          "segment_id": "s2_09",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 1180,
+            "end_exclusive": 1228
+          },
+          "source_text": "“往后雾再大，也能听着回家了。”",
+          "speaker_id": "wen"
+        },
+        {
+          "segment_id": "s2_10",
+          "source_span": {
+            "unit": "utf8_byte",
+            "start": 1228,
+            "end_exclusive": 1322
+          },
+          "source_text": "闻舟收起船篙。最后一滴水顺着麻线落进河心，岸上没有人急着开口。\n",
+          "speaker_id": "narrator"
+        }
+      ]
+    }
+  ]
+}
