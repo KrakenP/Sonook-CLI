@@ -89,7 +89,7 @@ extension SonookEngine {
 
     /// Builds a new verbatim audiobook project. Blocked builds retain their job and assets for review.
     public func buildAudiobook(
-        sourceFileURL: URL, projectName: String, chapterSpec: String? = nil, format: ExportFormat = .m4b,
+        sourceFileURL: URL, projectName: String, chapterSpec: String? = nil, format: ExportFormat = .m4a,
         soundscapeEnabled: Bool = false, soundLibraryDirectory: URL? = nil,
         sfxHelperExecutable: URL? = nil, sfxLicenseTag: String? = nil, publishPack: Bool = false,
         outputURL: URL? = nil, seed: UInt64 = 42, maxRepairRounds: Int = 2,

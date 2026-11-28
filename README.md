@@ -8,7 +8,7 @@ Turn a manuscript into a cast of voices from your Mac terminal. **Sonook CLI (`s
 
 ## What you can make
 
-- **Verbatim audiobooks.** Import TXT, Markdown or EPUB. Lock a voice for each character, check readings with local ASR and export M4B with chapter markers, M4A or WAV.
+- **Verbatim audiobooks.** Import TXT, Markdown or EPUB. Lock a voice for each character, check readings with local ASR and export universally playable M4A (default), chapter-marked M4B, or WAV.
 - **Story-aware soundscapes.** Place ambience and foley against scene and segment cues. Mix a local sound library under the voices while keeping the dry recordings for later edits.
 - **Authorized audio drama.** Give explicit adaptation permission for a project. Adapt dialogue and narration into a script that retains source-byte references.
 - **Private podcasts.** Ingest local notes, plan a solo or two-host episode, and trace statements and inferences to cited excerpts.
@@ -71,17 +71,17 @@ sonook model register --id listen --kind asr --provider qwen3-asr-mlx --path "$m
 sonook model list
 ```
 
-Pass any TXT, Markdown or EPUB file directly to `sonook`. It creates a `<title>_sonook/` folder right next to your text file, runs the local models with live five-stage progress, and saves the audiobook, timeline, character voice cards and verification report inside that folder.
+Pass any TXT, Markdown or EPUB file directly to `sonook`. It creates a `<title>_sonook/` folder right next to your text file, runs the local models with live five-stage progress, and saves an M4A audiobook (playable in any media player), timeline, character voice cards and verification report inside that folder.
 
 ```sh
 sonook Tests/AudioCoreTests/Fixtures/p0-unit-sample.txt
 ```
 
-You can also narrow chapters, choose formats, or keep outputs inside the central `~/Sonook` workspace with `sonook build`:
+You can also narrow chapters, choose `--format m4b` (for embedded chapter markers) or `wav`, or keep outputs inside the central `~/Sonook` workspace with `sonook build`:
 
 ```sh
 book=Tests/AudioCoreTests/Fixtures/p0-unit-sample.txt
-sonook "$book" --chapters 1 --format m4b --publish
+sonook "$book" --chapters 1 --publish
 sonook build "$book" --name "Ferry Bells" --chapters 1 --format m4b --publish
 ```
 
@@ -106,7 +106,7 @@ sonook verify --project "$project" --chapters 1 --save-report
 If review lists a blocked line, run `sonook segment regenerate <segment-id> --project "$project"`. After listening, you can also record a decision with `sonook segment approve <segment-id> --project "$project" --note "Reviewed the reading"`. Once verification passes, export the audiobook and locate the project directory.
 
 ```sh
-sonook export --project "$project" --chapters 1 --format m4b
+sonook export --project "$project" --chapters 1 --format m4a
 sonook project path "$project"
 ```
 

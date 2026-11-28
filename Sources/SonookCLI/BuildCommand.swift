@@ -16,8 +16,8 @@ extension SonookCLI {
             "--name", "--chapters", "--format", "--out", "--sound-library", "--sfx-helper",
             "--sfx-license", "--seed", "--max-repair-rounds"
         ], switches: ["--soundscape", "--publish"], pathCount: 1)
-        guard let format = ExportFormat(rawValue: opts.values["--format"]?.lowercased() ?? "m4b") else {
-            throw EngineSDKError.invalidInput("--format requires m4b, m4a or wav")
+        guard let format = ExportFormat(rawValue: opts.values["--format"]?.lowercased() ?? "m4a") else {
+            throw EngineSDKError.invalidInput("--format requires m4a, m4b or wav")
         }
         guard let rounds = Int(opts.values["--max-repair-rounds"] ?? "2"), rounds >= 0 else {
             throw EngineSDKError.invalidInput("--max-repair-rounds requires a nonnegative integer")

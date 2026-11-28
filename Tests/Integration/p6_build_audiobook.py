@@ -44,7 +44,7 @@ def exercise(binary, models, root):
     assert "overwrite the source" in run("build", alias, "--name", "重合", "--out", source, status=1)["message"]
     assert "output file" in run("build", source, "--name", "目录", "--out", root, status=1)["message"]
     assert run("project", "list") == []
-    options = ["build", alias, "--name", "场间", "--publish", "--out", output,
+    options = ["build", alias, "--name", "场间", "--format", "m4b", "--publish", "--out", output,
                "--soundscape", "--seed", "11", "--max-repair-rounds", "0"]
     assert "model register" in run(*options, status=1)["message"]
     sidecar = root / "pause_sonook"
@@ -62,7 +62,7 @@ def exercise(binary, models, root):
         assert not sidecar.exists() and run("project", "list") == []
         run("model", "register", "--id", provider, "--provider", provider, "--kind", kind, "--path", path)
     sidecar.mkdir()
-    for filename in ["pause.m4b", "pause.timeline.json", "characters.voice-cards.md", "verify-report.json"]:
+    for filename in ["pause.m4a", "pause.timeline.json", "characters.voice-cards.md", "verify-report.json"]:
         collision = sidecar / filename
         os.link(source, collision)
         assert "overwrite the source" in run(source, status=1)["message"]
@@ -75,7 +75,7 @@ def exercise(binary, models, root):
     assert check_progress(quick.stderr, sidecar) == report["character_count"]
     assert report["status"] == "completed" and report["chapter_count"] == 1
     assert Path(report["output_directory"]) == sidecar
-    for field, filename in [(report["export"]["output_path"], "pause.m4b"),
+    for field, filename in [(report["export"]["output_path"], "pause.m4a"),
                             (report["export"]["timeline_path"], "pause.timeline.json"),
                             (report["characters_path"], "characters.voice-cards.md"),
                             (report["verify_report_path"], "verify-report.json")]:
@@ -85,7 +85,7 @@ def exercise(binary, models, root):
 
     plain = invoke(alias, json_mode=False)
     check_progress(plain.stderr, root / "input_sonook")
-    for artifact in ["input.m4b", "characters.voice-cards.md", "verify-report.json"]:
+    for artifact in ["input.m4a", "characters.voice-cards.md", "verify-report.json"]:
         path = root / "input_sonook" / artifact
         assert path.is_file() and str(path) in plain.stdout
     assert "总用时" in plain.stdout and "[1/5]" not in plain.stdout
@@ -135,7 +135,7 @@ def exercise(binary, models, root):
     assert all(segment in stopped.stderr for segment in blocked_report["blocking_segment_ids"])
     assert str(verify) in stopped.stderr and "sonook review list" in stopped.stderr
     assert (stopped_dir / "characters.voice-cards.md").is_file()
-    assert not (stopped_dir / "待审核.m4b").exists() and not (stopped_dir / "releases").exists()
+    assert not (stopped_dir / "待审核.m4a").exists() and not (stopped_dir / "releases").exists()
 
 
 if __name__ == "__main__":

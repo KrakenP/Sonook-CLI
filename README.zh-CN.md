@@ -8,7 +8,7 @@
 
 ## 可以做什么
 
-- **原文保真有声书**。导入 TXT、Markdown 或 EPUB，为每个角色固定声线，用本地 ASR 回听质检，导出带章节标记的 M4B，也支持 M4A 和 WAV。
+- **原文保真有声书**。导入 TXT、Markdown 或 EPUB，为每个角色固定声线，用本地 ASR 回听质检，默认导出通用性最好的 M4A，也支持带章节标记的 M4B 和无损 WAV。
 - **剧情音景**。按场景铺环境音，把拟音对齐到具体片段。混音时给对白留出空间，保留干声，方便后续调整。
 - **授权广播剧**。为项目显式授权后，将对白和叙述改编成剧本。改编后的片段仍能按字节范围追溯原文。
 - **私人播客**。导入本地笔记，制作单人讲述或双人对谈的节目。脚本中的陈述和推断都可以回到引用片段核对。
@@ -71,17 +71,17 @@ sonook model register --id listen --kind asr --provider qwen3-asr-mlx --path "$m
 sonook model list
 ```
 
-直接把任意 TXT、Markdown 或 EPUB 文件传给 `sonook`，它会在原文所在目录创建 `<书名>_sonook/` 文件夹，按五阶段实时显示本地模型进度，并在完成后把有声书、时间轴、角色声卡和质检报告直接放进该文件夹。
+直接把任意 TXT、Markdown 或 EPUB 文件传给 `sonook`，它会在原文所在目录创建 `<书名>_sonook/` 文件夹，按五阶段实时显示本地模型进度，并在完成后把通用可播的 M4A 有声书、时间轴、角色声卡和质检报告直接放进该文件夹。
 
 ```sh
 sonook Tests/AudioCoreTests/Fixtures/p0-unit-sample.txt
 ```
 
-也可以按需追加章节、格式或发行包参数，或用 `sonook build` 将成品统一放进 `~/Sonook` 工作区：
+也可以按需追加章节、切换 `--format m4b`（带章节书签）或 `wav`，或用 `sonook build` 将成品统一放进 `~/Sonook` 工作区：
 
 ```sh
 book=Tests/AudioCoreTests/Fixtures/p0-unit-sample.txt
-sonook "$book" --chapters 1 --format m4b --publish
+sonook "$book" --chapters 1 --publish
 sonook build "$book" --name "Ferry Bells" --chapters 1 --format m4b --publish
 ```
 
@@ -106,7 +106,7 @@ sonook verify --project "$project" --chapters 1 --save-report
 如果有片段待审核，可以用 `sonook segment regenerate <segment-id> --project "$project"` 单独重录。试听后决定接受的片段，可用 `sonook segment approve <segment-id> --project "$project" --note "已试听确认"` 留下审核记录。重新验证通过后即可导出。
 
 ```sh
-sonook export --project "$project" --chapters 1 --format m4b
+sonook export --project "$project" --chapters 1 --format m4a
 sonook project path "$project"
 ```
 

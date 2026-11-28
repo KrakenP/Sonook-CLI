@@ -143,13 +143,13 @@ struct SonookCLI {
     static func printUsage() {
         stderrWrite("""
         sonook <file> [options]
-          Build an audiobook in <title>_sonook/ next to the source. Accepts the options listed for sonook build.
+          Build an audiobook (default M4A) in <title>_sonook/ next to the source. Accepts the options listed for sonook build.
 
         Default Workspace: ~/Sonook (override with --workspace <dir> or SONOOK_WORKSPACE)
         Workspace Outputs: <workspace>/outputs/<name>__<projectID>/{audiobooks,characters,reports,releases}/
         Usage:
           sonook --version | -v | version [--json]
-          sonook build <file> [--name <title>] [--chapters <spec>] [--format m4b|m4a|wav] [--out <file>]
+          sonook build <file> [--name <title>] [--chapters <spec>] [--format m4a|m4b|wav] [--out <file>]
                        [--soundscape] [--sound-library <dir>] [--sfx-helper <path>] [--sfx-license <tag>]
                        [--publish] [--seed <n>] [--max-repair-rounds <n>] [--workspace <dir>] [--json]
           sonook doctor [--workspace <dir>] [--json]
@@ -190,7 +190,7 @@ struct SonookCLI {
           sonook cache plan --project <id> [--chapters <spec>] [--main-tts <id>] [--workspace <dir>] [--json]
           sonook memory list --project <id> [--up-to <chapter-num>] [--workspace <dir>] [--json]
           sonook verify --project <id> [--chapters <spec>] [--m4b <file>] [--save-report] [--workspace <dir>] [--json]
-          sonook export --project <id> --format <wav|m4a|m4b> [--out <file>] [--chapters <spec>]
+          sonook export --project <id> [--format m4a|m4b|wav] [--out <file>] [--chapters <spec>]
                         [--title <t>] [--author <a>] [--narrator <n>]
                         [--ambient-file <wav/m4a>] [--ambient-gain-db <-24>] [--ambient-duck-db <-8>]
                         [--soundscape] [--sound-library <dir>] [--sfx-helper <path>] [--sfx-license <tag>]

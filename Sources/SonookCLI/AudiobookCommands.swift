@@ -342,9 +342,8 @@ extension SonookCLI {
 
     static func runExport(args: [String], jsonMode: Bool) async throws {
         guard let projectID = option("--project", in: args),
-              let fmtRaw = option("--format", in: args),
-              let format = ExportFormat(rawValue: fmtRaw.lowercased()) else {
-            stderrWrite("Usage: sonook export --project <id> --format wav|m4a|m4b [--out <file>] [--chapters 1-2] [--ambient-file <wav/m4a> | --soundscape] [--sound-library <dir>] [--sfx-helper <path>] [--sfx-license <tag>]\n")
+              let format = ExportFormat(rawValue: (option("--format", in: args) ?? "m4a").lowercased()) else {
+            stderrWrite("Usage: sonook export --project <id> [--format m4a|m4b|wav] [--out <file>] [--chapters 1-2] [--ambient-file <wav/m4a> | --soundscape] [--sound-library <dir>] [--sfx-helper <path>] [--sfx-license <tag>]\n")
             exit(2)
         }
         for key in ["--sound-library", "--sfx-helper", "--sfx-license"] where args.contains(key) {
