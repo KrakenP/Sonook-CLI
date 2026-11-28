@@ -111,12 +111,7 @@ public final class SonookEngine: Sendable {
         preferredMainTTSModelID: String? = nil,
         preferredASRModelID: String? = nil
     ) async throws -> ProjectRecord {
-        let now = ISO8601DateFormatter().string(from: Date())
-        let id = "proj_\(UUID().uuidString.prefix(8).lowercased())"
-        let record = ProjectRecord(
-            projectID: id,
-            name: name,
-            projectType: type,
+        let record = Self.newProject(name: name, type: type,
             options: ProductionOptions(
                 ambientAudioEnabled: ambientAudioEnabled,
                 ambientTrack: nil,
@@ -124,11 +119,15 @@ public final class SonookEngine: Sendable {
                 preferredAuditionTTSModelID: preferredAuditionTTSModelID,
                 preferredMainTTSModelID: preferredMainTTSModelID,
                 preferredASRModelID: preferredASRModelID
-            ),
-            createdAtISO8601: now
-        )
+            ))
         try await store.saveProject(record)
         return record
+    }
+
+    static func newProject(name: String, type: ProjectType = .audiobook,
+                           options: ProductionOptions = ProductionOptions()) -> ProjectRecord {
+        ProjectRecord(projectID: "proj_\(UUID().uuidString.prefix(8).lowercased())", name: name, projectType: type,
+                      options: options, createdAtISO8601: ISO8601DateFormatter().string(from: Date()))
     }
 
     public func listProjects() async throws -> [ProjectRecord] {
@@ -384,12 +383,13 @@ public final class SonookEngine: Sendable {
 
     public func runJob(
         jobID: String,
-        progress: (@Sendable (String) -> Void)? = nil
+        progress: (@Sendable (String) -> Void)? = nil,
+        onEvent: (@Sendable (BuildProgressEvent) -> Void)? = nil
     ) async throws -> WorkflowRunReport {
         guard let snap = try await store.jobSnapshot(jobID: jobID) else {
             throw EngineSDKError.jobNotFound(jobID)
         }
-        let executor = try makeExecutor(for: snap.job.workflowKind, progress: progress)
+        let executor = try makeExecutor(for: snap, onEvent: onEvent, progress: progress)
         let engine = WorkflowEngine(store: store, artifactStore: store, executor: executor)
         let report = try await engine.run(jobID: jobID, progress: progress)
         await runtime.unloadAllIdle()
@@ -409,7 +409,7 @@ public final class SonookEngine: Sendable {
            cfg.stopAfterCompletedNodes != nil {
             // Keep resume clean if the previous run used a test stop hook
         }
-        let executor = try makeExecutor(for: snap.job.workflowKind, progress: progress, ignoreStopHook: clearStopHook)
+        let executor = try makeExecutor(for: snap, progress: progress, ignoreStopHook: clearStopHook)
         let engine = WorkflowEngine(store: store, artifactStore: store, executor: executor)
         let report = try await engine.resume(jobID: jobID, progress: progress)
         await runtime.unloadAllIdle()
@@ -429,11 +429,12 @@ public final class SonookEngine: Sendable {
     }
 
     private func makeExecutor(
-        for workflowKind: String,
+        for snapshot: JobSnapshot,
+        onEvent: (@Sendable (BuildProgressEvent) -> Void)? = nil,
         progress: (@Sendable (String) -> Void)?,
         ignoreStopHook: Bool = false
     ) throws -> any NodeExecutorProtocol {
-        switch workflowKind {
+        switch snapshot.job.workflowKind {
         case "fake-demo":
             return FakeDemoNodeExecutor(store: store)
         case "chapter-mlx":
@@ -448,10 +449,11 @@ public final class SonookEngine: Sendable {
                 store: store,
                 runtime: runtime,
                 ignoreStopHook: ignoreStopHook,
-                stderrLog: progress ?? { _ in }
+                stderrLog: progress ?? { _ in },
+                nodes: snapshot.nodes, onEvent: onEvent
             )
         default:
-            throw EngineSDKError.unsupportedWorkflow(workflowKind)
+            throw EngineSDKError.unsupportedWorkflow(snapshot.job.workflowKind)
         }
     }
 }

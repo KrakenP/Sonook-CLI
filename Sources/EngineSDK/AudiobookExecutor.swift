@@ -14,6 +14,19 @@ public actor AudiobookMLXNodeExecutor: NodeExecutorProtocol {
     private let runtime: ModelResourceManager
     private let ignoreStopHook: Bool
     private let stderrLog: @Sendable (String) -> Void
+    private let onEvent: (@Sendable (BuildProgressEvent) -> Void)?
+    private struct SegmentProgress {
+        let total: Int
+        var completed: Set<String>
+
+        init(nodes: [JobNodeRecord], kind: String) {
+            let segments = nodes.filter { $0.kind == kind }
+            total = segments.count
+            completed = Set(segments.filter { $0.status == .completed || $0.status == .needsReview }.map(\.nodeID))
+        }
+    }
+    private var ttsProgress: SegmentProgress
+    private var asrProgress: SegmentProgress
     private var executedThisSession: Int = 0
     private var cachedAnchorPitchHz: [String: Double] = [:]
 
@@ -23,10 +36,23 @@ public actor AudiobookMLXNodeExecutor: NodeExecutorProtocol {
         ignoreStopHook: Bool = false,
         stderrLog: @escaping @Sendable (String) -> Void = { _ in }
     ) {
+        self.init(store: store, runtime: runtime, ignoreStopHook: ignoreStopHook, stderrLog: stderrLog,
+                  nodes: [], onEvent: nil)
+    }
+
+    init(
+        store: any WorkspaceStoreProtocol, runtime: ModelResourceManager, ignoreStopHook: Bool,
+        stderrLog: @escaping @Sendable (String) -> Void,
+        nodes: [JobNodeRecord], onEvent: (@Sendable (BuildProgressEvent) -> Void)?
+    ) {
         self.store = store
         self.runtime = runtime
         self.ignoreStopHook = ignoreStopHook
         self.stderrLog = stderrLog
+        self.onEvent = onEvent
+        let countedNodes = onEvent == nil ? [] : nodes
+        ttsProgress = SegmentProgress(nodes: countedNodes, kind: "mlx_book_tts_segment")
+        asrProgress = SegmentProgress(nodes: countedNodes, kind: "mlx_book_asr_segment")
     }
 
     public func execute(node: JobNodeRecord, lease: NodeLease, job: JobRecord) async throws -> NodeExecutionOutcome {
@@ -44,17 +70,29 @@ public actor AudiobookMLXNodeExecutor: NodeExecutorProtocol {
         switch node.kind {
         case "mlx_book_audition_cast":
             outcome = try await runAuditionCast(node: node, job: job, cfg: cfg)
-        case "mlx_book_tts_segment":
+        case "mlx_book_tts_segment", "mlx_book_asr_segment":
             let chapterID = payload["chapter_id"] as? String ?? ""
             let segmentID = payload["segment_id"] as? String ?? ""
-            outcome = try await runTTSSegment(node: node, job: job, cfg: cfg, chapterID: chapterID, segmentID: segmentID)
+            let isTTS = node.kind == "mlx_book_tts_segment"
+            let phase = isTTS ? "tts" : "asr"
+            let label = isTTS ? "TTS 合成" : "ASR 质检"
+            func emitSegment(_ counts: SegmentProgress, message: String) {
+                onEvent?(.init(stage: .synthesizing, subphase: phase, completed: counts.completed.count,
+                               total: counts.total, message: "\(label) · \(segmentID) \(message)"))
+            }
+            emitSegment(isTTS ? ttsProgress : asrProgress, message: "开始")
+            if isTTS {
+                outcome = try await runTTSSegment(node: node, job: job, cfg: cfg, chapterID: chapterID, segmentID: segmentID)
+                if onEvent != nil { ttsProgress.completed.insert(node.nodeID) }
+                emitSegment(ttsProgress, message: "完成")
+            } else {
+                outcome = try await runASRSegment(node: node, job: job, cfg: cfg, chapterID: chapterID, segmentID: segmentID)
+                if onEvent != nil { asrProgress.completed.insert(node.nodeID) }
+                emitSegment(asrProgress, message: "完成")
+            }
         case "mlx_stage_barrier":
             await runtime.unloadAllIdle()
             outcome = .completed(outputAssetID: nil, outputPayloadJSON: "{\"barrier\":\"passed\"}")
-        case "mlx_book_asr_segment":
-            let chapterID = payload["chapter_id"] as? String ?? ""
-            let segmentID = payload["segment_id"] as? String ?? ""
-            outcome = try await runASRSegment(node: node, job: job, cfg: cfg, chapterID: chapterID, segmentID: segmentID)
         case "mlx_book_auto_repair_round":
             let round = payload["round"] as? Int ?? 1
             outcome = try await runAutoRepairRound(node: node, job: job, cfg: cfg, round: round)
@@ -88,12 +126,18 @@ public actor AudiobookMLXNodeExecutor: NodeExecutorProtocol {
         var reusedCount = 0
 
         for var card in catalog.cards {
+            func auditionProgress(_ message: String) {
+                onEvent?(.init(stage: .auditioning, completed: updatedCards.count, total: catalog.cards.count,
+                               message: "\(card.canonicalName) · \(message)"))
+            }
+            auditionProgress("开始试音")
             if let existingAnchor = card.timbreAnchor,
                (try? await store.verifyAssetIntegrity(assetID: existingAnchor.assetID)) == true,
                let rec = try? await store.asset(id: existingAnchor.assetID),
                rec.fileSHA256 == existingAnchor.fileSHA256 {
                 reusedCount += 1
                 updatedCards.append(card)
+                auditionProgress("已复用试音")
                 continue
             }
 
@@ -131,6 +175,7 @@ public actor AudiobookMLXNodeExecutor: NodeExecutorProtocol {
             )
             generatedCount += 1
             updatedCards.append(card)
+            auditionProgress("试音完成")
         }
 
         if let peak = await runtime.measuredPeakBytes(for: vdEntry.modelID) {
@@ -485,7 +530,13 @@ public actor AudiobookMLXNodeExecutor: NodeExecutorProtocol {
             }
         }
 
+        func repairProgress(completed: Int, message: String) {
+            onEvent?(.init(stage: .synthesizing, subphase: "repair", completed: completed, total: cfg.maxRepairRounds,
+                           message: "修复第 \(round)/\(cfg.maxRepairRounds) 轮 · \(targets.count) 个片段 · \(message)"))
+        }
+        repairProgress(completed: round - 1, message: "开始")
         if targets.isEmpty {
+            repairProgress(completed: round, message: "无需修复")
             stderrLog("[DAG][\(node.nodeID)] Auto-repair round \(round): 0 segments need ASR repair (skipped model loads).")
             return .completed(outputAssetID: nil, outputPayloadJSON: "{\"round\":\(round),\"attempted\":0,\"repaired\":0,\"improved\":0}")
         }
@@ -640,6 +691,7 @@ public actor AudiobookMLXNodeExecutor: NodeExecutorProtocol {
         }
         await runtime.unloadAllIdle()
 
+        repairProgress(completed: round, message: "已修好 \(verifiedCount) 个")
         return .completed(
             outputAssetID: nil,
             outputPayloadJSON: "{\"round\":\(round),\"seed\":\(repairSeed),\"attempted\":\(candidates.count),\"repaired\":\(verifiedCount),\"improved\":\(improvedCount)}"

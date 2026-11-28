@@ -84,6 +84,41 @@ public enum SonookWorkspaceLayout: Sendable {
         return trimmed
     }
 
+    public static func defaultProjectTitle(forSourceFile sourceFileURL: URL) -> String {
+        let stem = sourceFileURL.deletingPathExtension().lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !stem.isEmpty { return stem }
+        let name = sourceFileURL.lastPathComponent.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "untitled" : name
+    }
+
+    public static func sidecarOutputDirectory(forSourceFile sourceFileURL: URL, title: String? = nil) -> URL {
+        let base = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolved = base.flatMap { $0.isEmpty ? nil : $0 } ?? defaultProjectTitle(forSourceFile: sourceFileURL)
+        let safe = sanitizeFileNameComponent(resolved, fallback: "untitled")
+        return sourceFileURL.deletingLastPathComponent().appendingPathComponent("\(safe)_sonook", isDirectory: true)
+    }
+
+    public static func sidecarAudiobookOutputURL(
+        in outputDirectory: URL, title: String, chapterNumbers: [Int], totalChapterCount: Int,
+        audioMode: ExportAudioMode, format: ExportFormat
+    ) -> URL {
+        var name = sanitizeFileNameComponent(title, fallback: "audiobook")
+        let tag = chapterRangeTag(chapterNumbers: chapterNumbers, totalChapterCount: totalChapterCount)
+        if tag != "full" { name += "_\(tag)" }
+        if audioMode != .dry { name += "_\(audioMode.rawValue)" }
+        return outputDirectory.appendingPathComponent("\(name).\(format.rawValue)", isDirectory: false)
+    }
+
+    public static func isQuickBuildSourceArgument(
+        _ arg: String, fileExists: (String) -> Bool = { FileManager.default.fileExists(atPath: $0) }
+    ) -> Bool {
+        let trimmed = arg.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !trimmed.hasPrefix("-") else { return false }
+        let expanded = (arg as NSString).expandingTildeInPath
+        return fileExists(expanded) || arg.contains("/") || arg.hasPrefix(".") || arg.hasPrefix("~")
+            || ["txt", "md", "markdown", "epub"].contains(URL(fileURLWithPath: expanded).pathExtension.lowercased())
+    }
+
     public static func outputsRoot(workspaceRoot: URL) -> URL {
         workspaceRoot.appendingPathComponent(outputsFolderName, isDirectory: true)
     }

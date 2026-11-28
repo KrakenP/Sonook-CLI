@@ -86,6 +86,10 @@ struct SonookCLI {
             case "help":
                 printUsage()
             default:
+                if SonookWorkspaceLayout.isQuickBuildSourceArgument(subcommand) {
+                    try await runQuickBuild(args: args, jsonMode: jsonMode)
+                    return
+                }
                 stderrWrite("Unknown command: \(subcommand)\n")
                 printUsage()
                 exit(2)
@@ -138,12 +142,14 @@ struct SonookCLI {
 
     static func printUsage() {
         stderrWrite("""
-        Default Workspace: ~/Sonook (override with --workspace <dir> or SONOOK_WORKSPACE)
-        Outputs Layout:    <workspace>/outputs/<name>__<projectID>/{audiobooks,characters,reports,releases}/
+        sonook <file> [options]
+          Build an audiobook in <title>_sonook/ next to the source. Accepts the options listed for sonook build.
 
+        Default Workspace: ~/Sonook (override with --workspace <dir> or SONOOK_WORKSPACE)
+        Workspace Outputs: <workspace>/outputs/<name>__<projectID>/{audiobooks,characters,reports,releases}/
         Usage:
           sonook --version | -v | version [--json]
-          sonook build <file> --name <title> [--chapters <spec>] [--format m4b|m4a|wav] [--out <file>]
+          sonook build <file> [--name <title>] [--chapters <spec>] [--format m4b|m4a|wav] [--out <file>]
                        [--soundscape] [--sound-library <dir>] [--sfx-helper <path>] [--sfx-license <tag>]
                        [--publish] [--seed <n>] [--max-repair-rounds <n>] [--workspace <dir>] [--json]
           sonook doctor [--workspace <dir>] [--json]

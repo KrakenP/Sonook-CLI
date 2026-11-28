@@ -21,24 +21,34 @@ extension SonookEngine {
         guard try await store.project(id: projectID) != nil else {
             throw EngineSDKError.projectNotFound(projectID)
         }
-        guard FileManager.default.fileExists(atPath: fileURL.path) else {
-            throw EngineSDKError.invalidInput("Source file not found: \(fileURL.path)")
-        }
+        let input = try BookImportInput(fileURL: fileURL, projectID: projectID, format: explicitFormat, encoding: explicitEncoding)
+        return try await persistBook(input, projectID: projectID)
+    }
 
-        let rawData = try Data(contentsOf: fileURL)
+    struct BookImportInput {
+        let fileURL: URL
+        let rawData: Data
         let revision = "doc_\(UUID().uuidString.prefix(8).lowercased())"
-        let imported = try ContentImporter.importData(
-            rawData,
-            fileName: fileURL.lastPathComponent,
-            projectID: projectID,
-            sourceDocumentRevision: revision,
-            explicitFormat: explicitFormat,
-            explicitEncoding: explicitEncoding
-        )
+        let book: ImportedBook
 
+        init(fileURL: URL, projectID: String, format: SourceFormat? = nil, encoding: ExplicitTextEncoding? = nil) throws {
+            guard FileManager.default.fileExists(atPath: fileURL.path) else {
+                throw EngineSDKError.invalidInput("Source file not found: \(fileURL.path)")
+            }
+            self.fileURL = fileURL
+            rawData = try Data(contentsOf: fileURL)
+            book = try ContentImporter.importData(rawData, fileName: fileURL.lastPathComponent, projectID: projectID,
+                                                  sourceDocumentRevision: revision, explicitFormat: format, explicitEncoding: encoding)
+        }
+    }
+
+    func persistBook(_ input: BookImportInput, projectID: String) async throws -> BookImportReport {
+        let imported = input.book
+        let fileURL = input.fileURL
+        let revision = input.revision
         let rawExt = fileURL.pathExtension.isEmpty ? imported.format.rawValue : fileURL.pathExtension.lowercased()
         let rawAsset = try await store.commitBytes(
-            rawData,
+            input.rawData,
             projectID: projectID,
             kind: .sourceDocument,
             fileExtension: rawExt,
@@ -106,7 +116,8 @@ extension SonookEngine {
         llmModelID: String? = nil,
         maxCharacters: Int = 0,
         seed: UInt64 = 42,
-        progress: @escaping @Sendable (String) -> Void = { _ in }
+        progress: @escaping @Sendable (String) -> Void = { _ in },
+        onEvent: (@Sendable (BuildProgressEvent) -> Void)? = nil
     ) async throws -> BookAnalysisReport {
         guard let project = try await store.project(id: projectID) else {
             throw EngineSDKError.projectNotFound(projectID)
@@ -138,7 +149,9 @@ extension SonookEngine {
                 var rollingMemories = initialMemories
                 var batchSummaries: [ChapterAnalysisSummary] = []
 
-                for chapter in selectedChapters {
+                for (index, chapter) in selectedChapters.enumerated() {
+                    onEvent?(.init(stage: .analyzing, completed: index, total: selectedChapters.count,
+                                   message: "正在分析第 \(chapter.chapterNumber) 章"))
                     progress("[Analyze] Segmenting \(chapter.chapterID) (\(chapter.title))...")
                     let (slice, directedUnits) = try DirectorSegmenter.segmentChapter(
                         chapter: chapter,
@@ -242,6 +255,8 @@ extension SonookEngine {
                         scriptAssetID: scriptAsset.assetID,
                         proposedStagesCount: proposedCount
                     ))
+                    onEvent?(.init(stage: .analyzing, completed: index + 1, total: selectedChapters.count,
+                                   message: "第 \(chapter.chapterNumber) 章完成，\(scriptDoc.segments.count) 个片段，已识别 \(output.catalog.cards.count) 个角色"))
                 }
                 let finalCatalog = rollingCatalog ?? CharacterVoiceCatalog(projectID: projectID, revision: 1, cards: [NarrativeAnalyzer.defaultNarratorCard()])
                 return (finalCatalog, batchSummaries)

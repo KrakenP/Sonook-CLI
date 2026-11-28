@@ -71,14 +71,21 @@ sonook model register --id listen --kind asr --provider qwen3-asr-mlx --path "$m
 sonook model list
 ```
 
-仓库附有一篇两章的原创中文故事。在源码根目录运行以下命令，就能把第一章做成有声书，同时生成离线发行包。
+直接把任意 TXT、Markdown 或 EPUB 文件传给 `sonook`，它会在原文所在目录创建 `<书名>_sonook/` 文件夹，按五阶段实时显示本地模型进度，并在完成后把有声书、时间轴、角色声卡和质检报告直接放进该文件夹。
+
+```sh
+sonook Tests/AudioCoreTests/Fixtures/p0-unit-sample.txt
+```
+
+也可以按需追加章节、格式或发行包参数，或用 `sonook build` 将成品统一放进 `~/Sonook` 工作区：
 
 ```sh
 book=Tests/AudioCoreTests/Fixtures/p0-unit-sample.txt
+sonook "$book" --chapters 1 --format m4b --publish
 sonook build "$book" --name "Ferry Bells" --chapters 1 --format m4b --publish
 ```
 
-成功后，命令会输出成品路径。如果质检拦下某句，可按报告中的项目和片段 ID 试听、修正，再继续导出。任务中断后，用 `sonook job resume <job-id>` 从检查点续跑。
+完成后会打印输出目录和成品路径。如果质检拦下某句，可查看文件夹里的 `verify-report.json` 并按提示只重录或放行该片段。任务中断后，用 `sonook job resume <job-id>` 从检查点续跑。
 
 ### 分步制作
 

@@ -71,14 +71,21 @@ sonook model register --id listen --kind asr --provider qwen3-asr-mlx --path "$m
 sonook model list
 ```
 
-This command makes the first chapter of the repository’s original Chinese story and packages it for offline playback.
+Pass any TXT, Markdown or EPUB file directly to `sonook`. It creates a `<title>_sonook/` folder right next to your text file, runs the local models with live five-stage progress, and saves the audiobook, timeline, character voice cards and verification report inside that folder.
+
+```sh
+sonook Tests/AudioCoreTests/Fixtures/p0-unit-sample.txt
+```
+
+You can also narrow chapters, choose formats, or keep outputs inside the central `~/Sonook` workspace with `sonook build`:
 
 ```sh
 book=Tests/AudioCoreTests/Fixtures/p0-unit-sample.txt
+sonook "$book" --chapters 1 --format m4b --publish
 sonook build "$book" --name "Ferry Bells" --chapters 1 --format m4b --publish
 ```
 
-The build prints the output paths on success. If quality review blocks export, use the project and segment IDs in the report to listen and correct the affected lines. Resume an interrupted job with `sonook job resume <job-id>`.
+On completion, `sonook` prints the output folder and file paths. If quality review blocks export, `verify-report.json` and the printed project/segment IDs let you listen and correct only the affected lines. Resume an interrupted job with `sonook job resume <job-id>`.
 
 ### Work one stage at a time
 

@@ -4,6 +4,44 @@ import Testing
 
 @Suite("WorkspaceLayout")
 struct WorkspaceLayoutTests {
+    @Test(arguments: [("山海经.txt", "山海经"), ("book.vol.2.md", "book.vol.2"), ("  无后缀  ", "无后缀"),
+                      ("  书名  .epub", "书名"), ("   .txt", ".txt"), ("   ", "untitled")])
+    func sourceTitle(file: String, title: String) {
+        #expect(SonookWorkspaceLayout.defaultProjectTitle(forSourceFile: URL(fileURLWithPath: "/tmp/" + file)) == title)
+    }
+
+    @Test func sidecarDirectory() {
+        let source = URL(fileURLWithPath: "/tmp/books/山 海.epub")
+        for title in [nil, "  "] as [String?] {
+            #expect(SonookWorkspaceLayout.sidecarOutputDirectory(forSourceFile: source, title: title).path == "/tmp/books/山-海_sonook")
+        }
+        #expect(SonookWorkspaceLayout.sidecarOutputDirectory(forSourceFile: source, title: "../新:书").path == "/tmp/books/新-书_sonook")
+    }
+
+    @Test func sidecarFilenames() {
+        let directory = URL(fileURLWithPath: "/tmp/book_sonook", isDirectory: true)
+        func output(_ numbers: [Int], _ mode: ExportAudioMode, _ format: ExportFormat = .m4b) -> String {
+            SonookWorkspaceLayout.sidecarAudiobookOutputURL(in: directory, title: "山/海", chapterNumbers: numbers,
+                                                           totalChapterCount: 3, audioMode: mode, format: format).path
+        }
+        #expect(output([1, 2, 3], .dry) == directory.path + "/山-海.m4b")
+        #expect(output([1, 2], .dry) == directory.path + "/山-海_ch001-002.m4b")
+        #expect(output([1, 2, 3], .soundscape) == directory.path + "/山-海_soundscape.m4b")
+        #expect(output([2], .soundscape, .wav) == directory.path + "/山-海_ch002_soundscape.wav")
+    }
+
+    @Test func quickBuildArgument() {
+        for arg in ["/tmp/noext", "./relative", "~/book", "dir/novel", ".hidden", "a.TXT", "a.md", "a.MARKDOWN", "a.epub", "existing"] {
+            #expect(SonookWorkspaceLayout.isQuickBuildSourceArgument(arg) { $0 == "existing" })
+        }
+        for arg in ["", "  ", "foobar", "--flag", "  --flag.txt", "-a.txt"] {
+            #expect(!SonookWorkspaceLayout.isQuickBuildSourceArgument(arg) { $0 != "foobar" })
+        }
+        var checked = ""
+        _ = SonookWorkspaceLayout.isQuickBuildSourceArgument("~/book") { checked = $0; return false }
+        #expect(checked == ("~/book" as NSString).expandingTildeInPath)
+    }
+
     @Test("Default workspace resolves to ~/Sonook unless SONOOK_WORKSPACE overrides it")
     func defaultWorkspaceResolution() {
         let fakeHome = URL(fileURLWithPath: "/tmp/sonook-fake-home", isDirectory: true)
