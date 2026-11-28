@@ -96,6 +96,26 @@ extension SonookEngine {
         sidecarOutputDirectory: URL? = nil, progress: @escaping @Sendable (String) -> Void = { _ in },
         onEvent: (@Sendable (BuildProgressEvent) -> Void)? = nil
     ) async throws -> AudiobookBuildReport {
+        try await buildAudiobook(sourceFileURL: sourceFileURL, projectName: projectName, chapterSpec: chapterSpec,
+            format: format, soundscapeEnabled: soundscapeEnabled, soundLibraryDirectory: soundLibraryDirectory,
+            sfxHelperExecutable: sfxHelperExecutable, sfxLicenseTag: sfxLicenseTag, publishPack: publishPack,
+            outputURL: outputURL, seed: seed, maxRepairRounds: maxRepairRounds, sidecarOutputDirectory: sidecarOutputDirectory,
+            progress: progress, onEvent: onEvent, onJobCreated: nil)
+    }
+
+    /// Calls `onJobCreated` once the generation job is durable and before running its first node.
+    // Preserve unqualified method references and trailing closures bound to the original overload.
+    @_disfavoredOverload
+    public func buildAudiobook(
+        sourceFileURL: URL, projectName: String, chapterSpec: String? = nil, format: ExportFormat = .m4a,
+        soundscapeEnabled: Bool = false, soundLibraryDirectory: URL? = nil,
+        sfxHelperExecutable: URL? = nil, sfxLicenseTag: String? = nil, publishPack: Bool = false,
+        outputURL: URL? = nil, seed: UInt64 = 42, maxRepairRounds: Int = 2,
+        sidecarOutputDirectory: URL? = nil, progress: @escaping @Sendable (String) -> Void = { _ in },
+        onEvent: (@Sendable (BuildProgressEvent) -> Void)? = nil,
+        onJobCreated: (@Sendable (_ projectID: String, _ jobID: String) -> Void)? = nil
+    ) async throws -> AudiobookBuildReport {
+        try Task.checkCancellation()
         guard !projectName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw EngineSDKError.invalidInput("An audiobook title is required")
         }
@@ -135,23 +155,25 @@ extension SonookEngine {
                 chapterNumbers: selected.map(\.chapterNumber), totalChapterCount: input.book.chapters.count,
                 audioMode: soundscapeEnabled ? .soundscape : .dry, format: format)
         }
+        try Task.checkCancellation()
         if let sidecarOutputDirectory {
             if outputURL == nil { try validateBuildOutputs(source: source, files: outputFiles(destination), directories: directories) }
             try FileManager.default.createDirectory(at: sidecarOutputDirectory, withIntermediateDirectories: true)
         }
         try await store.saveProject(project)
+        try Task.checkCancellation()
         let imported = try await persistBook(input, projectID: id)
         emit(.init(stage: .importing, message: "已导入 \(imported.chapters.count) 章，\(imported.sourceDocument.totalUTF8Bytes) UTF-8 字节"))
         emit(.init(stage: .analyzing, message: "正在加载本地分析模型"))
         let analysis = try await analyzeChapters(projectID: id, chapterSpec: chapterSpec, llmModelID: llm,
                                                  seed: seed, progress: progress, onEvent: emit)
         if let cards { _ = try await exportCharactersMarkdown(projectID: id, to: cards) }
+        try Task.checkCancellation()
         let job = try await submitAudiobookGenerateJob(projectID: id, chapterSpec: chapterSpec,
                                                       auditionTTSModelID: audition, mainTTSModelID: tts, asrModelID: asr,
                                                       seed: seed, maxRepairRounds: maxRepairRounds)
         let jobID = job.job.jobID
-        progress("[Build] Running generation job \(jobID)...")
-        let generation = try await runJob(jobID: jobID, progress: progress, onEvent: emit)
+        let jobStatus = try await runBuildJob(job.job, onJobCreated: onJobCreated, progress: progress, onEvent: emit)
         emit(.init(stage: .synthesizing, message: "正在核验片段与音频文件"))
         let verification = try await verifyProject(projectID: id, chapterSpec: chapterSpec)
         if let verify { _ = try await saveVerificationReport(verification, to: verify) }
@@ -163,7 +185,6 @@ extension SonookEngine {
                                  verifyReportPath: verify?.path, chapterCount: analysis.chapters.count,
                                  characterCount: analysis.characterCount)
         }
-        let jobStatus: JobStatus = generation.cancelled ? .cancelled : generation.finalStatus
         let finished = jobStatus == .completed || jobStatus == .needsReview
         guard finished && verification.exportReady else {
             func quoted(_ value: String) -> String {
@@ -184,11 +205,13 @@ extension SonookEngine {
         }
 
         emit(.init(stage: .exporting, message: "正在导出 \(format.rawValue.uppercased())"))
+        try Task.checkCancellation()
         let exported = try await exportBook(projectID: id, format: format, destinationURL: destination,
                                             chapterSpec: chapterSpec, soundscapeEnabled: soundscapeEnabled,
                                             soundLibraryDirectory: soundLibraryDirectory, sfxHelperExecutable: sfxHelperExecutable,
                                             sfxLicenseTag: sfxLicenseTag, progress: progress)
         let packURL = releases?.appendingPathComponent("\(SonookWorkspaceLayout.sanitizeFileNameComponent(projectName))__\(id).audiopack", isDirectory: true)
+        try Task.checkCancellation()
         let publication = publishPack ? try await publishAudioPack(
             projectID: id, chapterSpec: chapterSpec, outputURL: packURL,
             soundscapeEnabled: soundscapeEnabled,
@@ -197,5 +220,20 @@ extension SonookEngine {
         ) : nil
         emit(.init(stage: .exporting, message: "已完成导出"))
         return report(status: .completed, export: exported, publication: publication)
+    }
+
+    func runBuildJob(_ job: JobRecord, onJobCreated: (@Sendable (String, String) -> Void)?,
+                     progress: @escaping @Sendable (String) -> Void,
+                     onEvent: @escaping @Sendable (BuildProgressEvent) -> Void) async throws -> JobStatus {
+        let jobID = job.jobID
+        return try await withTaskCancellationHandler {
+            onJobCreated?(job.projectID, jobID)
+            progress("[Build] Running generation job \(jobID)...")
+            let generation = try await runJob(jobID: jobID, progress: progress, onEvent: onEvent)
+            try Task.checkCancellation()
+            return generation.cancelled ? .cancelled : generation.finalStatus
+        } onCancel: {
+            Task { _ = try? await self.cancelJob(jobID: jobID) }
+        }
     }
 }

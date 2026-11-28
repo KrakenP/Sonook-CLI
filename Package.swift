@@ -111,6 +111,7 @@ let package = Package(
             resources: [.copy("Fixtures")]
         ),
         .testTarget(name: "StorageKitTests", dependencies: ["AudioCore", "StorageKit"]),
+        .testTarget(name: "EngineSDKTests", dependencies: ["EngineSDK", "AudioCore", "AudioRenderKit"]),
         .testTarget(name: "WorkflowKitTests", dependencies: ["AudioCore", "StorageKit", "WorkflowKit"]),
         .testTarget(name: "ContentKitTests", dependencies: ["AudioCore", "ContentKit"]),
         .testTarget(name: "NarrativeKitTests", dependencies: ["AudioCore", "NarrativeKit", "DirectorKit"]),

@@ -462,13 +462,14 @@ extension SonookEngine {
         return try await store.chapterMemoriesUpTo(projectID: projectID, maxChapterNumber: maxChapterNumber ?? Int.max)
     }
 
-    private func loadQualityAudits(projectID: String) async throws -> (byAssetID: [String: SegmentQualityAudit], bySegmentID: [String: SegmentQualityAudit]) {
+    func loadQualityAudits(projectID: String, chapterID: String? = nil) async throws -> (byAssetID: [String: SegmentQualityAudit], bySegmentID: [String: SegmentQualityAudit]) {
         let reportAssets = try await store.listAssets(projectID: projectID, kind: .qualityReport)
             .sorted { $0.createdAtISO8601 < $1.createdAtISO8601 }
         var byAsset: [String: SegmentQualityAudit] = [:]
         var bySeg: [String: SegmentQualityAudit] = [:]
         let decoder = JSONDecoder()
         for asset in reportAssets {
+            if let chapterID, let recordedChapter = asset.provenance.chapterID, chapterID != recordedChapter { continue }
             if let data = try? await store.readVerifiedData(for: asset.assetID),
                let audit = try? decoder.decode(SegmentQualityAudit.self, from: data) {
                 byAsset[audit.wavAssetID] = audit

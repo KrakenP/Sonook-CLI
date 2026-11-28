@@ -403,7 +403,7 @@ public struct QualityThresholds: Codable, Equatable, Sendable {
     }
 }
 
-public enum QualityReason: String, Equatable, Sendable {
+public enum QualityReason: String, Codable, Equatable, Sendable {
     case truncated, silent, clipping, internalSilence, highCER, suspectedOmission, suspectedRepetition, pitchDrift
 }
 

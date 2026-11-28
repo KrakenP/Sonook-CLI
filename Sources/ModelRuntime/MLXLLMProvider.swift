@@ -20,6 +20,7 @@ public actor MLXLocalLLMProvider: LLMProvider {
         "temperature": .anyValue,
         "top_p": .anyValue,
         "seed": .anyValue,
+        "repetition_penalty": .anyValue,
         "enable_thinking": .oneOf(["true", "false"])
     ])
 
@@ -64,17 +65,33 @@ public actor MLXLocalLLMProvider: LLMProvider {
         let temperature = parameters["temperature"].flatMap(Float.init) ?? 0.0
         let topP = parameters["top_p"].flatMap(Float.init) ?? 0.9
         let enableThinking = (parameters["enable_thinking"] ?? "false") == "true"
+        let parsedSeed: UInt64?
         if let seedStr = parameters["seed"] {
             guard let seed = UInt64(seedStr) else {
                 throw ProviderCapabilityError.invalidInput("Invalid LLM seed: \(seedStr)")
             }
             MLXRandom.seed(seed)
+            parsedSeed = seed
+        } else {
+            parsedSeed = nil
+        }
+        let repetitionPenalty: Float?
+        if let penaltyStr = parameters["repetition_penalty"] {
+            guard let penalty = Float(penaltyStr), penalty.isFinite, penalty > 0 else {
+                throw ProviderCapabilityError.invalidInput("Invalid LLM repetition_penalty: \(penaltyStr)")
+            }
+            repetitionPenalty = penalty
+        } else {
+            repetitionPenalty = nil
         }
 
         let genParams = MLXLMCommon.GenerateParameters(
             maxTokens: maxTokens,
             temperature: temperature,
-            topP: topP
+            topP: topP,
+            repetitionPenalty: repetitionPenalty,
+            repetitionContextSize: 64,
+            seed: parsedSeed
         )
 
         let t0 = Date()

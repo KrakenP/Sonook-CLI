@@ -59,12 +59,16 @@ if [[ "$BUILD_FULL" == "1" ]]; then
     echo "[3/3] Running full Swift test suite..."
     swift test ${SWIFT_PM_FLAGS[@]+"${SWIFT_PM_FLAGS[@]}"}
 else
-    echo "[2/3] Building all 11 non-GPU engine & kit test targets..."
-    for target in AudioCoreTests StorageKitTests WorkflowKitTests ContentKitTests NarrativeKitTests DirectorKitTests SpeechKitTests AudioRenderKitTests KnowledgeKitTests DistributionKitTests EngineServerTests; do
+    targets=(AudioCoreTests StorageKitTests WorkflowKitTests ContentKitTests NarrativeKitTests DirectorKitTests SpeechKitTests AudioRenderKitTests KnowledgeKitTests DistributionKitTests EngineServerTests)
+    echo "[2/3] Building all ${#targets[@]} non-GPU engine & kit test targets..."
+    for target in "${targets[@]}"; do
         swift build --target "$target" ${SWIFT_PM_FLAGS[@]+"${SWIFT_PM_FLAGS[@]}"}
     done
     echo "[3/3] Running unit & contract test suites..."
-    swift test --skip-build ${SWIFT_PM_FLAGS[@]+"${SWIFT_PM_FLAGS[@]}"}
+    # EngineSDKTests links ModelRuntime and runs with the full suite.
+    for target in "${targets[@]}"; do
+        swift test --skip-build --test-product "$target" ${SWIFT_PM_FLAGS[@]+"${SWIFT_PM_FLAGS[@]}"}
+    done
 fi
 
 echo "ALL CHECKS PASSED."

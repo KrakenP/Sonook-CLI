@@ -155,20 +155,39 @@ private func validate(_ lines: [(String, Bool, String?, Double)]) -> [NarrativeU
 }
 
 actor RetryingLLM: LLMProvider {
-    let capabilities = LLMCapabilities(parameters: ["temperature": .anyValue, "seed": .anyValue, "enable_thinking": .anyValue,
-                                                     "max_tokens": .anyValue, "system_prompt": .anyValue])
+    let capabilities: LLMCapabilities
     private(set) var isLoaded = true
     private(set) var maxTokensSeen = [String]()
+    private(set) var temperaturesSeen = [String]()
+    private(set) var repetitionPenaltiesSeen = [String?]()
     private var profileAttempts = 0
     private var attributionAttempts = 0
+    private let profileFailures: Int
+
+    init(profileFailures: Int = 1, supportsRepetitionPenalty: Bool = false) {
+        self.profileFailures = profileFailures
+        if supportsRepetitionPenalty {
+            self.capabilities = LLMCapabilities(parameters: [
+                "temperature": .anyValue, "seed": .anyValue, "enable_thinking": .anyValue,
+                "max_tokens": .anyValue, "system_prompt": .anyValue, "repetition_penalty": .anyValue
+            ])
+        } else {
+            self.capabilities = LLMCapabilities(parameters: [
+                "temperature": .anyValue, "seed": .anyValue, "enable_thinking": .anyValue,
+                "max_tokens": .anyValue, "system_prompt": .anyValue
+            ])
+        }
+    }
 
     func load() { isLoaded = true }
     func unload() { isLoaded = false }
     func generateAccepted(prompt: String, parameters: AcceptedParameters) -> LLMResponse {
         maxTokensSeen.append(parameters.values["max_tokens"] ?? "")
+        temperaturesSeen.append(parameters.values["temperature"] ?? "")
+        repetitionPenaltiesSeen.append(parameters.values["repetition_penalty"])
         if prompt.contains("coreference_notes") {
             profileAttempts += 1
-            if profileAttempts == 1 {
+            if profileAttempts <= profileFailures {
                 // Truncated JSON with an inner object closed but outer object unclosed
                 return .init(text: #"{"coreference_notes":"长文","characters":[{"canonical_name":"阿七","voice_design_prompt":"温润"},{"canonical_name":"阿九""#,
                              metrics: .init(providerID: "test", modelID: "fake", modelRevision: "1", inferenceDurationMs: 1))
@@ -196,4 +215,16 @@ actor RetryingLLM: LLMProvider {
     #expect(output.catalog.resolveCharacter(namedOrAliased: "阿七") != nil)
     #expect(output.autoAttributedCount == 1 && output.needsReviewCount == 0)
     #expect(await fake.maxTokensSeen == ["4096", "8192", "2400", "3600"])
+    #expect(await fake.temperaturesSeen == ["0.0", "0.25", "0.0", "0.2"])
+    #expect(await fake.repetitionPenaltiesSeen == [nil, nil, nil, nil])
+
+    let compactFallback = RetryingLLM(profileFailures: 2, supportsRepetitionPenalty: true)
+    let output2 = try await NarrativeAnalyzer.analyzeChapter(
+        projectID: "p", chapterNumber: 1, chapterText: "“喝茶。”", units: units,
+        existingCatalog: nil, llmProvider: compactFallback, seed: 42
+    )
+    #expect(output2.catalog.resolveCharacter(namedOrAliased: "阿七") != nil)
+    #expect(await compactFallback.maxTokensSeen == ["4096", "8192", "4096", "2400", "3600"])
+    #expect(await compactFallback.temperaturesSeen == ["0.0", "0.25", "0.35", "0.0", "0.2"])
+    #expect(await compactFallback.repetitionPenaltiesSeen == [nil, "1.15", "1.2", nil, "1.12"])
 }

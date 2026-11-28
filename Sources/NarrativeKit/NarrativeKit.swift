@@ -119,11 +119,20 @@ public enum NarrativeAnalyzer: Sendable {
             catalog = try catalog.merging(incomingCards: [defaultNarratorCard()])
         }
 
-        func generate(_ prompt: String, tokens: Int) async throws -> String {
-            try await llmProvider.generate(.init(prompt: prompt, parameters: [
-                "temperature": "0.0", "seed": String(seed), "enable_thinking": "false",
-                "max_tokens": String(tokens), "system_prompt": "你是中文有声书分析引擎。只输出符合字段要求的 JSON 对象。"
-            ])).text
+        let supportsRepetitionPenalty = llmProvider.capabilities.parameters["repetition_penalty"] != nil
+        func generate(_ prompt: String, tokens: Int, temperature: Double = 0.0,
+                      repetitionPenalty: Double? = nil, seedOffset: UInt64 = 0) async throws -> String {
+            var params: [String: String] = [
+                "temperature": String(temperature),
+                "seed": String(seed &+ seedOffset),
+                "enable_thinking": "false",
+                "max_tokens": String(tokens),
+                "system_prompt": "你是中文有声书分析引擎。只输出符合字段要求的 JSON 对象。"
+            ]
+            if let repetitionPenalty, supportsRepetitionPenalty {
+                params["repetition_penalty"] = String(repetitionPenalty)
+            }
+            return try await llmProvider.generate(.init(prompt: prompt, parameters: params)).text
         }
         let history = ChapterMemoryTracker(priorMemories, before: chapterNumber, projectID: projectID)
         let profileCards = history.selectRelevantRoster(catalog: catalog, chapterText: chapterText, maxCharacters: maxRosterSize)
@@ -135,10 +144,19 @@ public enum NarrativeAnalyzer: Sendable {
         do {
             profiles = try decodeObject(firstProfileJSON)
         } catch {
-            stderrLog("[Narrative] ch\(chapterNumber) profile JSON decode failed; retrying with 8192 tokens...")
+            stderrLog("[Narrative] ch\(chapterNumber) profile JSON decode failed (chars=\(firstProfileJSON.count)); retrying with 8192 tokens...")
             let retryPrompt = "请保持每个字段描述简明扼要，避免冗长重复，确保输出单个完整闭合的合法 JSON 对象：\n\n" + profilePrompt
-            let retryProfileJSON = try await generate(retryPrompt, tokens: 8192)
-            profiles = try decodeObject(retryProfileJSON)
+            let retryProfileJSON = try await generate(retryPrompt, tokens: 8192, temperature: 0.25,
+                                                      repetitionPenalty: 1.15, seedOffset: 1)
+            if let second: ChapterProfiles = try? decodeObject(retryProfileJSON) {
+                profiles = second
+            } else {
+                stderrLog("[Narrative] ch\(chapterNumber) profile retry failed (chars=\(retryProfileJSON.count)); retrying with compact schema...")
+                let compactPrompt = "请输出极简合法 JSON（coreference_notes 不超过 60 字，每个角色只保留必要字段，evidence_excerpts 至多 1 条，不要重复列举，确保以 `}` 正常闭合）：\n\n" + profilePrompt
+                let compactProfileJSON = try await generate(compactPrompt, tokens: 4096, temperature: 0.35,
+                                                            repetitionPenalty: 1.2, seedOffset: 2)
+                profiles = try decodeObject(compactProfileJSON)
+            }
         }
         let stages = try profiles.apply(to: &catalog, chapter: chapterNumber, text: chapterText)
         stderrLog("[Narrative] ch\(chapterNumber) cast extracted: \(catalog.cards.count) character(s), \(stages.values.reduce(0) { $0 + $1.count }) stage update(s)")
@@ -206,7 +224,8 @@ public enum NarrativeAnalyzer: Sendable {
                 decoded = first
             } else {
                 stderrLog("[Narrative] ch\(chapterNumber) attribution batch at offset \(start) invalid JSON; retrying with 3600 tokens...")
-                let retryRaw = try await generate("请将每条 evidence 压缩到 15 字以内，确保输出单个完整闭合的合法 JSON 对象：\n\n" + prompt, tokens: 3600)
+                let retryRaw = try await generate("请将每条 evidence 压缩到 15 字以内，确保输出单个完整闭合的合法 JSON 对象：\n\n" + prompt,
+                                                  tokens: 3600, temperature: 0.2, repetitionPenalty: 1.12, seedOffset: 1)
                 decoded = try? decodeObject(retryRaw)
             }
             guard let response = decoded else {

@@ -35,6 +35,11 @@ extension SQLiteWorkspaceStore {
             """, [projectID]) { try $0.document(SourceDocumentRecord.self) }.first
     }
 
+    package func sourceDocument(projectID: String, revision: String) throws -> SourceDocumentRecord? {
+        try db.query("SELECT document FROM source_documents WHERE project_id=? AND source_document_revision=?",
+                     [projectID, revision]) { try $0.document(SourceDocumentRecord.self) }.first
+    }
+
     public func listChapters(projectID: String, sourceDocumentRevision: String?) async throws -> [ChapterRecord] {
         try db.query("""
             SELECT document FROM chapters WHERE project_id=?1 AND source_document_revision=COALESCE(?2,(\(Self.latestRevision)))

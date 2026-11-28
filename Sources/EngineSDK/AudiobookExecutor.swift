@@ -217,13 +217,13 @@ public actor AudiobookMLXNodeExecutor: NodeExecutorProtocol {
             modelRevision: mainEntry.revision
         )
 
-        // Reuse existing intact verified WAV if synthesis fingerprint matches!
-        if seg.status == .verified,
+        // Reuse existing intact WAV if synthesis fingerprint matches (verified, already synthesized, or regenerated needs_review).
+        if (seg.status == .verified || seg.status == .synthesized || seg.status == .needsReview),
            let existingAssetID = seg.audioArtifactID,
            let existingAsset = try await store.asset(id: existingAssetID),
            existingAsset.provenance.inputFingerprint == synthFP,
            try await store.verifyAssetIntegrity(assetID: existingAssetID) {
-            stderrLog("[DAG][\(node.nodeID)] Reusing verified cached WAV for \(segmentID) -> \(existingAssetID)")
+            stderrLog("[DAG][\(node.nodeID)] Reusing cached WAV (\(seg.status.rawValue)) for \(segmentID) -> \(existingAssetID)")
             return .completed(outputAssetID: existingAssetID, outputPayloadJSON: "{\"asset_id\":\"\(existingAssetID)\",\"reused\":true}")
         }
 
@@ -268,6 +268,7 @@ public actor AudiobookMLXNodeExecutor: NodeExecutorProtocol {
             verifiedAnchorPath = anchorURL.path
         }
 
+        let attemptSeed = cfg.seed &+ UInt64(max(0, node.attemptCount - 1))
         let speechReq: SpeechRequest
         do {
             speechReq = try SpeechRequestBuilder.buildSegmentSynthesisRequest(
@@ -276,7 +277,7 @@ public actor AudiobookMLXNodeExecutor: NodeExecutorProtocol {
                 chapterNumber: chapterNum,
                 providerID: mainEntry.providerID,
                 verifiedAnchorPath: verifiedAnchorPath,
-                seed: cfg.seed
+                seed: attemptSeed
             )
         } catch {
             throw NodeExecutionError.unsupportedCapability(error.localizedDescription)

@@ -150,6 +150,7 @@ extension SonookEngine {
                 var batchSummaries: [ChapterAnalysisSummary] = []
 
                 for (index, chapter) in selectedChapters.enumerated() {
+                    try Task.checkCancellation()
                     onEvent?(.init(stage: .analyzing, completed: index, total: selectedChapters.count,
                                    message: "正在分析第 \(chapter.chapterNumber) 章"))
                     progress("[Analyze] Segmenting \(chapter.chapterID) (\(chapter.title))...")
@@ -501,6 +502,7 @@ extension SonookEngine {
             }
         }
 
+        try Task.checkCancellation()
         try await store.createJob(job, nodes: nodes, edges: edges)
         return try await store.jobSnapshot(jobID: jobID)!
     }
