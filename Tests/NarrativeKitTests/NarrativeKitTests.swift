@@ -153,3 +153,47 @@ private func validate(_ lines: [(String, Bool, String?, Double)]) -> [NarrativeU
     let request = try #require(await fake.requests.first)
     #expect(request.prompt.contains("初出茅庐") && !request.prompt.contains("远期秘密") && !request.prompt.contains("未来基调"))
 }
+
+actor RetryingLLM: LLMProvider {
+    let capabilities = LLMCapabilities(parameters: ["temperature": .anyValue, "seed": .anyValue, "enable_thinking": .anyValue,
+                                                     "max_tokens": .anyValue, "system_prompt": .anyValue])
+    private(set) var isLoaded = true
+    private(set) var maxTokensSeen = [String]()
+    private var profileAttempts = 0
+    private var attributionAttempts = 0
+
+    func load() { isLoaded = true }
+    func unload() { isLoaded = false }
+    func generateAccepted(prompt: String, parameters: AcceptedParameters) -> LLMResponse {
+        maxTokensSeen.append(parameters.values["max_tokens"] ?? "")
+        if prompt.contains("coreference_notes") {
+            profileAttempts += 1
+            if profileAttempts == 1 {
+                // Truncated JSON with an inner object closed but outer object unclosed
+                return .init(text: #"{"coreference_notes":"长文","characters":[{"canonical_name":"阿七","voice_design_prompt":"温润"},{"canonical_name":"阿九""#,
+                             metrics: .init(providerID: "test", modelID: "fake", modelRevision: "1", inferenceDurationMs: 1))
+            }
+            return .init(text: #"{"coreference_notes":"ok","characters":[{"canonical_name":"阿七","voice_design_prompt":"温润"}]} 附加说明{忽略}"#,
+                         metrics: .init(providerID: "test", modelID: "fake", modelRevision: "1", inferenceDurationMs: 1))
+        }
+        attributionAttempts += 1
+        if attributionAttempts == 1 {
+            return .init(text: #"{"attributions":[{"index":0,"speaker":"阿七""#,
+                         metrics: .init(providerID: "test", modelID: "fake", modelRevision: "1", inferenceDurationMs: 1))
+        }
+        return .init(text: #"{"attributions":[{"index":0,"speaker":"阿七","confidence":0.95,"evidence":"开篇说话"}]} 尾注{x}"#,
+                     metrics: .init(providerID: "test", modelID: "fake", modelRevision: "1", inferenceDurationMs: 1))
+    }
+}
+
+@Test func truncatedProfileAndAttributionJSONRetryWithExpandedTokenBudgetAndBalancedDecode() async throws {
+    let units = [NarrativeUnitInput(index: 0, segmentID: "s0", sourceText: "“喝茶。”", spokenText: "喝茶。", isQuotedDialogue: true)]
+    let fake = RetryingLLM()
+    let output = try await NarrativeAnalyzer.analyzeChapter(
+        projectID: "p", chapterNumber: 1, chapterText: "“喝茶。”", units: units,
+        existingCatalog: nil, llmProvider: fake, seed: 42
+    )
+    #expect(output.catalog.resolveCharacter(namedOrAliased: "阿七") != nil)
+    #expect(output.autoAttributedCount == 1 && output.needsReviewCount == 0)
+    #expect(await fake.maxTokensSeen == ["4096", "8192", "2400", "3600"])
+}

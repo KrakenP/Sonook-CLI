@@ -128,9 +128,18 @@ public enum NarrativeAnalyzer: Sendable {
         let history = ChapterMemoryTracker(priorMemories, before: chapterNumber, projectID: projectID)
         let profileCards = history.selectRelevantRoster(catalog: catalog, chapterText: chapterText, maxCharacters: maxRosterSize)
         let memoryPrompt = history.buildPriorMemoryPrompt(rosterIDs: Set(profileCards.map(\.characterID)))
-        let profileJSON = try await generate(ChapterProfiles.prompt(cards: profileCards, chapter: chapterNumber,
-                                                                    text: chapterText, priorMemory: memoryPrompt), tokens: 2048)
-        let profiles: ChapterProfiles = try decodeObject(profileJSON)
+        let profilePrompt = ChapterProfiles.prompt(cards: profileCards, chapter: chapterNumber,
+                                                   text: chapterText, priorMemory: memoryPrompt)
+        let profiles: ChapterProfiles
+        let firstProfileJSON = try await generate(profilePrompt, tokens: 4096)
+        do {
+            profiles = try decodeObject(firstProfileJSON)
+        } catch {
+            stderrLog("[Narrative] ch\(chapterNumber) profile JSON decode failed; retrying with 8192 tokens...")
+            let retryPrompt = "请保持每个字段描述简明扼要，避免冗长重复，确保输出单个完整闭合的合法 JSON 对象：\n\n" + profilePrompt
+            let retryProfileJSON = try await generate(retryPrompt, tokens: 8192)
+            profiles = try decodeObject(retryProfileJSON)
+        }
         let stages = try profiles.apply(to: &catalog, chapter: chapterNumber, text: chapterText)
         stderrLog("[Narrative] ch\(chapterNumber) cast extracted: \(catalog.cards.count) character(s), \(stages.values.reduce(0) { $0 + $1.count }) stage update(s)")
         let attributionCards = history.selectRelevantRoster(catalog: catalog, chapterText: chapterText, maxCharacters: maxRosterSize)
@@ -191,8 +200,16 @@ public enum NarrativeAnalyzer: Sendable {
                 待归属片段：
                 \(lines(batch))\(afterBlock)
                 """
-            let raw = try await generate(prompt, tokens: 1600)
-            guard let response: AttributionPayload = try? decodeObject(raw) else {
+            let raw = try await generate(prompt, tokens: 2400)
+            let decoded: AttributionPayload?
+            if let first = try? decodeObject(raw) as AttributionPayload {
+                decoded = first
+            } else {
+                stderrLog("[Narrative] ch\(chapterNumber) attribution batch at offset \(start) invalid JSON; retrying with 3600 tokens...")
+                let retryRaw = try await generate("请将每条 evidence 压缩到 15 字以内，确保输出单个完整闭合的合法 JSON 对象：\n\n" + prompt, tokens: 3600)
+                decoded = try? decodeObject(retryRaw)
+            }
+            guard let response = decoded else {
                 stderrLog("Attribution batch at offset \(start) returned invalid JSON")
                 continue
             }
@@ -219,7 +236,40 @@ public enum NarrativeAnalyzer: Sendable {
             guard let close = text[open.upperBound...].range(of: "</think>") else { throw NarrativeError.invalidModelJSON }
             text = text[close.upperBound...]
         }
-        guard let start = text.firstIndex(of: "{"), let end = text.lastIndex(of: "}"), start < end else {
+        guard let start = text.firstIndex(of: "{") else {
+            throw NarrativeError.invalidModelJSON
+        }
+        var depth = 0
+        var inString = false
+        var escaped = false
+        var matchedEnd: String.Index?
+        var cursor = start
+        while cursor < text.endIndex {
+            let ch = text[cursor]
+            if inString {
+                if escaped {
+                    escaped = false
+                } else if ch == "\\" {
+                    escaped = true
+                } else if ch == "\"" {
+                    inString = false
+                }
+            } else {
+                if ch == "\"" {
+                    inString = true
+                } else if ch == "{" {
+                    depth += 1
+                } else if ch == "}" {
+                    depth -= 1
+                    if depth == 0 {
+                        matchedEnd = cursor
+                        break
+                    }
+                }
+            }
+            cursor = text.index(after: cursor)
+        }
+        guard let end = matchedEnd, start < end else {
             throw NarrativeError.invalidModelJSON
         }
         let decoder = JSONDecoder()
